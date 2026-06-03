@@ -1,0 +1,12 @@
+ipython
+jupyter
+lime
+matplotlib
+numpy
+optuna
+pandas
+scikit-learn
+scipy
+shap
+tensorflow
+tf-keras-vis
