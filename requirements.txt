@@ -1,7 +1,9 @@
 ipython
 jupyter
+keras-nlp
 lime
 matplotlib
+mne
 numpy
 optuna
 pandas

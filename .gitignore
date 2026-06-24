@@ -2,8 +2,10 @@
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+.venv/
+.python/
 
 # Large research artifacts kept outside this GitHub repository.
 # Use an external data archive such as Zenodo/OSF/Drive and cite it from README.
-Data/MI/
+Data/
 Models/MI/
