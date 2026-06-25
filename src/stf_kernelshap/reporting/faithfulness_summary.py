@@ -14,6 +14,21 @@ import numpy as np
 import pandas as pd
 from stf_kernelshap.reporting.formatting import pretty_model_name
 
+def _trapezoid(y, x):
+    if hasattr(np, 'trapezoid'):
+        return np.trapezoid(y, x)
+    return np.trapz(y, x)
+
+def _resolve_metric_column(df, candidates, metric_name):
+    for column in candidates:
+        if column in df.columns:
+            return column
+    raise KeyError(
+        f"No se encontró la columna para {metric_name}. "
+        f"Se esperaba una de {candidates}. "
+        f"Columnas disponibles: {list(df.columns)}"
+    )
+
 def compute_faithfulness_auc_summary(df_plot_ready, early_max_percentage=None):
     """
     Calcula AUC de MoRF y ROAD por:
@@ -28,13 +43,23 @@ def compute_faithfulness_auc_summary(df_plot_ready, early_max_percentage=None):
     df = df_plot_ready.copy()
     if early_max_percentage is not None:
         df = df[df['percentage_removed'] <= early_max_percentage].copy()
+    morf_col = _resolve_metric_column(
+        df,
+        ['MoRF_accuracy', 'MoRF_score_mean'],
+        'MoRF',
+    )
+    road_col = _resolve_metric_column(
+        df,
+        ['ROAD_accuracy_gap', 'ROAD_score_gap_mean'],
+        'ROAD',
+    )
     group_cols = ['paradigm', 'window', 'subject', 'fold', 'model', 'method']
     rows = []
     for keys, g in df.groupby(group_cols, dropna=False):
         g = g.sort_values('percentage_removed')
         x = g['percentage_removed'].values / 100.0
-        morf_auc = np.trapz(g['MoRF_accuracy'].values, x)
-        road_auc = np.trapz(g['ROAD_accuracy_gap'].values, x)
+        morf_auc = _trapezoid(g[morf_col].values, x)
+        road_auc = _trapezoid(g[road_col].values, x)
         row = dict(zip(group_cols, keys))
         row.update({'MoRF_accuracy_AUC': morf_auc, 'ROAD_accuracy_gap_AUC': road_auc})
         rows.append(row)

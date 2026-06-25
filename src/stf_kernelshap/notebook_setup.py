@@ -173,6 +173,9 @@ def setup_notebook_environment(debug=False, download_dataset=True):
     paths.results_dir.mkdir(parents=True, exist_ok=True)
     paths.figures_dir.mkdir(parents=True, exist_ok=True)
     paths.output_models_dir.mkdir(parents=True, exist_ok=True)
+    matplotlib_config_dir = temp_dir / ".matplotlib"
+    matplotlib_config_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(matplotlib_config_dir))
 
     print(f"Repository root: {paths.repo_root}")
     print(f"Dataset root: {paths.dataset_root}")
