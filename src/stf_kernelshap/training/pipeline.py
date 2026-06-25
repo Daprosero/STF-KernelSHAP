@@ -23,8 +23,6 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from collections import defaultdict
-import shutil
-import os
 
 
 def train_L24O_cv(
@@ -503,10 +501,6 @@ def make_objective(
         # 4. Guardar SOLO si este trial es el nuevo mejor
         # --------------------------------------------------
         if is_new_best:
-            # borrar lo anterior
-            if os.path.exists(best_model_dir):
-                shutil.rmtree(best_model_dir)
-
             os.makedirs(best_model_dir, exist_ok=True)
 
             for fold_id, model in results["models"].items():
@@ -522,13 +516,24 @@ def make_objective(
                         best_model_dir,
                         model_filename,
                     )
+                    if os.path.exists(model_path):
+                        os.remove(model_path)
                     model.save_weights(model_path)
 
                 elif save_format == "full":
+                    if best_model_name_template is None:
+                        model_filename = f"{model_name}_BESTTRIAL_fold{fold_id}.keras"
+                    else:
+                        model_filename = best_model_name_template.format(
+                            model_name=model_name,
+                            fold_id=fold_id,
+                        )
                     model_path = os.path.join(
                         best_model_dir,
-                        f"{model_name}_BESTTRIAL_fold{fold_id}.keras"
+                        model_filename,
                     )
+                    if os.path.exists(model_path):
+                        os.remove(model_path)
                     model.save(model_path)
 
                 else:
