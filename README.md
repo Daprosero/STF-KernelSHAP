@@ -13,7 +13,7 @@ Repository with code, notebooks, figures, trained artifacts, and result files fo
 - `Notebooks/Topoplots.ipynb`: topoplot, selected faithfulness, and spectra figure runner.
 - `Figures/`: figures generated for the paper.
 - `Results/`: classification, attribution, and faithfulness result files.
-- `Models/TDAH/`: included trained TDAH model artifacts and Optuna journals.
+- `Models/`: included trained MI/TDAH model artifacts and Optuna journals.
 - `MI_TDAH_Dataset/`: optional local dataset folder ignored by Git.
 - `Temp/`: optional debug output folder ignored by Git.
 
@@ -21,13 +21,12 @@ Repository with code, notebooks, figures, trained artifacts, and result files fo
 
 This repository uses Git LFS for binary scientific artifacts such as `.npz`, `.mat`, `.h5`, `.pkl`, and `.pdf` files.
 
-The full local project also contains datasets and large Motor Imagery artifacts that are intentionally excluded from Git:
+The full local project also contains datasets and debug outputs that are intentionally excluded from Git:
 
 - `Data/`
 - `MI_TDAH_Dataset/`
 - `Temp/`
 - `Data/MI/` (~5.6 GB)
-- `Models/MI/` (~1.3 GB)
 
 For publication, place those large artifacts in a data repository such as Zenodo, OSF, institutional storage, or Google Drive, then add the public DOI/link here.
 
@@ -71,11 +70,10 @@ Each notebook includes an initial bootstrap cell that:
 
 In local runs, dependencies are expected to be installed in the active virtual environment unless you manually run the install cell.
 
-Restore datasets and excluded Motor Imagery artifacts locally under:
+Restore datasets locally under:
 
 - `Data/TDAH/`
 - `Data/MI/`
-- `Models/MI/`
 
 before running the corresponding notebooks or scripts.
 

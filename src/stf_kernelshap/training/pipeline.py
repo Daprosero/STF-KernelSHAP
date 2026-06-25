@@ -422,6 +422,7 @@ def make_objective(
     folds=None,
     npz_path=None,
     best_model_dir="best_models",
+    best_model_name_template=None,
     save_format="weights",   # "weights" o "full"
     direction="maximize",    # "maximize" o "minimize"
 ):
@@ -510,9 +511,16 @@ def make_objective(
 
             for fold_id, model in results["models"].items():
                 if save_format == "weights":
+                    if best_model_name_template is None:
+                        model_filename = f"{model_name}_BESTTRIAL_fold{fold_id}.weights.h5"
+                    else:
+                        model_filename = best_model_name_template.format(
+                            model_name=model_name,
+                            fold_id=fold_id,
+                        )
                     model_path = os.path.join(
                         best_model_dir,
-                        f"{model_name}_BESTTRIAL_fold{fold_id}.weights.h5"
+                        model_filename,
                     )
                     model.save_weights(model_path)
 
@@ -592,6 +600,7 @@ def run_optuna_experiment(
     npz_path=None,
     n_trials=20,
     best_model_dir="best_models",
+    best_model_name_template=None,
 ):
     objective = make_objective(
         model_name=model_name,
@@ -606,7 +615,8 @@ def run_optuna_experiment(
         sbjs=sbjs,
         folds=folds,
         npz_path=npz_path,
-        best_model_dir=best_model_dir
+        best_model_dir=best_model_dir,
+        best_model_name_template=best_model_name_template,
     )
 
     study = get_or_create_study_local(

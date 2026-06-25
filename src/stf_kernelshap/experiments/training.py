@@ -11,6 +11,7 @@ import tensorflow as tf
 
 from stf_kernelshap.training.pipeline import run_optuna_experiment
 from stf_kernelshap.data import get_segmented_data
+from stf_kernelshap.utils import get_model_folder_name
 
 
 MI_VALID_SUBJECTS = [
@@ -102,6 +103,15 @@ def run_mi_optuna_for_worker(
     total_workers = WORKERS_BY_MODEL[model_name]
     subjects = split_subjects_evenly(MI_VALID_SUBJECTS, total_workers, worker_id)
     samples = samples_for_window(window_name)
+    model_folder = get_model_folder_name(model_name)
+    model_output_root = os.path.join(
+        output_models_dir,
+        "MI",
+        window_name,
+        model_folder,
+    )
+    optuna_dir = os.path.join(model_output_root, "Optuna")
+    weights_dir = os.path.join(model_output_root, "Models")
     studies = {}
 
     for subject_id in subjects:
@@ -109,7 +119,10 @@ def run_mi_optuna_for_worker(
             model_name=model_name,
             data_mode="npz_folds",
             study_name=f"study_{model_name}_MI_{window_name}_sj{subject_id}",
-            journal_file=f"study_{model_name}_MI_{window_name}_sj{subject_id}.journal",
+            journal_file=os.path.join(
+                optuna_dir,
+                f"study_{model_name}_MI_{window_name}_sj{subject_id}.journal",
+            ),
             base_model_args={
                 "nb_classes": 2,
                 "Chans": 64,
@@ -125,9 +138,10 @@ def run_mi_optuna_for_worker(
             n_trials=n_trials,
             epochs=epochs,
             batch_size=batch_size,
-            best_model_dir=os.path.join(
-                output_models_dir,
-                f"{model_name}_MI_{window_name}_best_models_{subject_id}",
+            best_model_dir=weights_dir,
+            best_model_name_template=(
+                f"{model_name}_{window_name}_sj{subject_id}"
+                "_fold_{fold_id}.weights.h5"
             ),
         )
 
@@ -144,6 +158,8 @@ def run_tdah_optuna(
     epochs=100,
     batch_size=16,
 ):
+    optuna_dir = os.path.join(output_models_dir, "TDAH", "Optuna")
+    weights_dir = os.path.join(output_models_dir, "TDAH", "Models")
     X, y, sbjs, folds = load_tdah_training_data(
         folds_path=folds_path,
         path_adhd=path_adhd,
@@ -154,7 +170,7 @@ def run_tdah_optuna(
         data_mode="subject_folds",
         study_name=f"study_{model_name}_TDAH",
         journal_file=os.path.join(
-            output_models_dir,
+            optuna_dir,
             f"study_{model_name}_TDAH.journal",
         ),
         base_model_args={
@@ -171,5 +187,6 @@ def run_tdah_optuna(
         n_trials=n_trials,
         epochs=epochs,
         batch_size=batch_size,
-        best_model_dir=os.path.join(output_models_dir, f"{model_name}_best_models"),
+        best_model_dir=weights_dir,
+        best_model_name_template=f"{model_name}_fold_{{fold_id}}.weights.h5",
     )
