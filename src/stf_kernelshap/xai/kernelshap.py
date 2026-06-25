@@ -696,7 +696,16 @@ def make_logits_model(
                 f"La capa Activation '{output_layer_name}' no usa softmax."
             )
 
-        logits = output_layer.input
+        # output_layer.input is unreliable in Keras 3.x when building a
+        # sub-model from inside an existing Functional graph. Use the
+        # inbound layer's output directly instead.
+        inbound_nodes = output_layer._inbound_nodes
+        if inbound_nodes:
+            logits = inbound_nodes[0].input_tensors
+            if isinstance(logits, (list, tuple)):
+                logits = logits[0]
+        else:
+            logits = output_layer.input
 
         logits_model = tf.keras.Model(
             inputs=model.inputs,
