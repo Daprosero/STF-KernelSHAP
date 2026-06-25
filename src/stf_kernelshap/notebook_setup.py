@@ -19,6 +19,9 @@ class NotebookPaths:
     dataset_root: Path
     data_dir: Path
     models_dir: Path
+    repo_models_dir: Path
+    repo_results_dir: Path
+    repo_figures_dir: Path
     output_models_dir: Path
     results_dir: Path
     figures_dir: Path
@@ -30,7 +33,8 @@ def find_repo_root(start=None):
     """Find the repository root from a notebook or script working directory."""
     current = Path(start or Path.cwd()).resolve()
     for candidate in [current, *current.parents]:
-        if (candidate / "src").exists() and (candidate / "Notebooks").exists():
+        has_notebooks_dir = (candidate / "Notebooks").exists() or (candidate / "notebooks").exists()
+        if (candidate / "src").exists() and has_notebooks_dir:
             return candidate
     return current
 
@@ -156,6 +160,9 @@ def setup_notebook_environment(debug=False, download_dataset=True):
         dataset_root=dataset_root,
         data_dir=_resolve_data_dir(dataset_root),
         models_dir=_resolve_models_dir(repo_root, dataset_root),
+        repo_models_dir=repo_root / "Models",
+        repo_results_dir=repo_root / "Results",
+        repo_figures_dir=repo_root / "Figures",
         output_models_dir=output_root / "Models",
         results_dir=output_root / "Results",
         figures_dir=output_root / "Figures",
