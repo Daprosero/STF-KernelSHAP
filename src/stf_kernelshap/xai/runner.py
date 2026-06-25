@@ -1,5 +1,7 @@
 import os
 import gc
+import csv
+import time
 import numpy as np
 import tensorflow as tf
 import shap
@@ -33,6 +35,114 @@ from stf_kernelshap.xai.kernelshap import (
 )
 from tf_keras_vis.gradcam_plus_plus import GradcamPlusPlus
 from tf_keras_vis.utils.scores import CategoricalScore
+
+
+TIMING_LOG_FILENAME = "xai_timing_logs.csv"
+
+
+def _sync_accelerator():
+    """Best-effort synchronization before/after timing GPU-backed calls."""
+    try:
+        tf.experimental.async_wait()
+    except Exception:
+        try:
+            tf.config.experimental.get_synchronous_execution()
+        except Exception:
+            pass
+
+
+def _append_runtime(runtime_seconds, start_time):
+    _sync_accelerator()
+    runtime_seconds.append(float(time.perf_counter() - start_time))
+
+
+def write_xai_timing_log(
+    results_dir,
+    result,
+    paradigm,
+    model_name,
+    label_source,
+    hardware="NVIDIA T4 GPU",
+    window=None,
+    subject=None,
+    fold=None,
+    method_params=None,
+    partition_id=None,
+    n_partitions=None,
+):
+    runtime_seconds = np.asarray(
+        result.get("runtime_seconds", []),
+        dtype=float,
+    )
+    sample_indices = np.asarray(result.get("sample_indices", []))
+    class_indices = np.asarray(result.get("class_indices", []))
+
+    if runtime_seconds.size == 0:
+        return None
+
+    if sample_indices.size != runtime_seconds.size:
+        sample_indices = np.arange(runtime_seconds.size)
+
+    if class_indices.size != runtime_seconds.size:
+        class_indices = np.full(runtime_seconds.size, np.nan)
+
+    log_path = os.path.join(results_dir, TIMING_LOG_FILENAME)
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    fieldnames = [
+        "paradigm",
+        "window",
+        "subject",
+        "fold",
+        "model",
+        "method",
+        "label_source",
+        "sample_idx",
+        "class_idx",
+        "runtime_seconds",
+        "hardware",
+        "score_type",
+        "n_samples_timed",
+        "partition_id",
+        "n_partitions",
+        "method_params",
+    ]
+
+    write_header = not os.path.exists(log_path) or os.path.getsize(log_path) == 0
+    method_params = method_params or {}
+
+    with open(log_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+
+        for sample_idx, class_idx, runtime in zip(
+            sample_indices,
+            class_indices,
+            runtime_seconds,
+        ):
+            writer.writerow(
+                {
+                    "paradigm": paradigm,
+                    "window": "" if window is None else window,
+                    "subject": "" if subject is None else subject,
+                    "fold": fold,
+                    "model": model_name,
+                    "method": result.get("method", ""),
+                    "label_source": label_source,
+                    "sample_idx": int(sample_idx),
+                    "class_idx": "" if np.isnan(class_idx) else int(class_idx),
+                    "runtime_seconds": runtime,
+                    "hardware": hardware,
+                    "score_type": result.get("score_type", ""),
+                    "n_samples_timed": runtime_seconds.size,
+                    "partition_id": "" if partition_id is None else partition_id,
+                    "n_partitions": "" if n_partitions is None else n_partitions,
+                    "method_params": repr(method_params),
+                }
+            )
+
+    return log_path
 # ============================================================
 # 1. Model loading utilities
 # ============================================================
@@ -496,8 +606,11 @@ def kernelshap_all_xtest(
 
     relevance_maps = []
     class_indices = []
+    runtime_seconds = []
 
     for i, sample_idx in enumerate(sample_indices):
+        _sync_accelerator()
+        start_time = time.perf_counter()
 
         x = get_sample(
             X_test,
@@ -558,6 +671,10 @@ def kernelshap_all_xtest(
         class_indices.append(
             class_idx
         )
+        _append_runtime(
+            runtime_seconds,
+            start_time,
+        )
 
         print(
             f"[{i + 1}/{len(sample_indices)}] "
@@ -582,6 +699,7 @@ def kernelshap_all_xtest(
         "score_type": "logits" if use_logits else "probabilities",
         "sample_indices": sample_indices,
         "class_indices": class_indices,
+        "runtime_seconds": np.asarray(runtime_seconds, dtype=np.float64),
         "relevance_maps": relevance_maps,
         "mean_relevance": np.mean(relevance_maps, axis=0),
     }
@@ -649,8 +767,11 @@ def lime_all_xtest(
 
     relevance_maps = []
     class_indices = []
+    runtime_seconds = []
 
     for i, sample_idx in enumerate(sample_indices):
+        _sync_accelerator()
+        start_time = time.perf_counter()
 
         x = get_sample(X_test, sample_idx)
         x_flat = x.reshape((1, -1))
@@ -686,6 +807,10 @@ def lime_all_xtest(
 
         relevance_maps.append(relevance)
         class_indices.append(class_idx)
+        _append_runtime(
+            runtime_seconds,
+            start_time,
+        )
 
         print(
             f"[{i + 1}/{len(sample_indices)}] "
@@ -699,6 +824,7 @@ def lime_all_xtest(
         "method": "LIME",
         "sample_indices": np.asarray(sample_indices),
         "class_indices": class_indices,
+        "runtime_seconds": np.asarray(runtime_seconds, dtype=np.float64),
         "relevance_maps": relevance_maps,
         "mean_relevance": np.mean(relevance_maps, axis=0),
     }
@@ -771,12 +897,15 @@ def integrated_gradients_all_xtest(
 
     relevance_all = []
     class_all = []
+    runtime_all = []
 
     for start in range(
         0,
         len(sample_indices),
         batch_size,
     ):
+        _sync_accelerator()
+        start_time = time.perf_counter()
 
         batch_indices = sample_indices[
             start:start + batch_size
@@ -925,6 +1054,15 @@ def integrated_gradients_all_xtest(
         )
 
         class_all.append(class_idx)
+        _sync_accelerator()
+        elapsed_seconds = time.perf_counter() - start_time
+        runtime_all.append(
+            np.full(
+                len(batch_indices),
+                elapsed_seconds / max(len(batch_indices), 1),
+                dtype=np.float64,
+            )
+        )
 
         print(
             f"[{min(start + batch_size, len(sample_indices))}/{len(sample_indices)}] "
@@ -941,11 +1079,16 @@ def integrated_gradients_all_xtest(
         class_all,
         axis=0,
     ).astype(np.int64)
+    runtime_seconds = np.concatenate(
+        runtime_all,
+        axis=0,
+    ).astype(np.float64)
 
     return {
         "method": "IntegratedGradients",
         "sample_indices": sample_indices,
         "class_indices": class_indices,
+        "runtime_seconds": runtime_seconds,
         "relevance_maps": relevance_maps,
         "mean_relevance": np.mean(relevance_maps, axis=0),
     }
@@ -1025,8 +1168,11 @@ def occlusion_all_xtest(
 
     relevance_maps = []
     class_indices = []
+    runtime_seconds = []
 
     for i, sample_idx in enumerate(sample_indices):
+        _sync_accelerator()
+        start_time = time.perf_counter()
 
         x = get_sample(
             X_test,
@@ -1208,6 +1354,10 @@ def occlusion_all_xtest(
         class_indices.append(
             class_idx
         )
+        _append_runtime(
+            runtime_seconds,
+            start_time,
+        )
 
         print(
             f"[{i + 1}/{len(sample_indices)}] "
@@ -1232,6 +1382,7 @@ def occlusion_all_xtest(
         "score_type": "logits" if use_logits else "probabilities",
         "sample_indices": sample_indices,
         "class_indices": class_indices,
+        "runtime_seconds": np.asarray(runtime_seconds, dtype=np.float64),
         "relevance_maps": relevance_maps,
         "mean_relevance": np.mean(relevance_maps, axis=0),
     }
@@ -1289,10 +1440,13 @@ def gradcam_plus_plus_all_xtest(
 
     relevance_maps = []
     class_indices = []
+    runtime_seconds = []
 
     for i, sample_idx in enumerate(
         sample_indices
     ):
+        _sync_accelerator()
+        start_time = time.perf_counter()
 
         x = get_sample(
             X_test,
@@ -1357,6 +1511,10 @@ def gradcam_plus_plus_all_xtest(
         class_indices.append(
             class_idx
         )
+        _append_runtime(
+            runtime_seconds,
+            start_time,
+        )
 
         print(
             f"[{i + 1}/{len(sample_indices)}] "
@@ -1380,6 +1538,7 @@ def gradcam_plus_plus_all_xtest(
         "method": "GradCAM++",
         "sample_indices": sample_indices,
         "class_indices": class_indices,
+        "runtime_seconds": np.asarray(runtime_seconds, dtype=np.float64),
         "relevance_maps": relevance_maps,
         "mean_relevance": np.mean(relevance_maps, axis=0),
         "layer_name": used_layer_name,
@@ -1857,6 +2016,9 @@ def run_mi_xai_and_save(
     overwrite=False,
     use_y_test=False,
     predict_batch_size=512,
+    sample_indices=None,
+    hardware="NVIDIA T4 GPU",
+    save_attributions=True,
 ):
     """
     Ejecuta XAI para MI y guarda únicamente la matriz de importancia
@@ -1913,6 +2075,18 @@ def run_mi_xai_and_save(
             y_train_mi = mi_data_case["y_train"]
 
             n_samples = X_test_mi.shape[0]
+            if sample_indices is None:
+                sample_indices_case = None
+            else:
+                sample_indices_case = np.asarray(sample_indices, dtype=int)
+                sample_indices_case = sample_indices_case[
+                    sample_indices_case < n_samples
+                ]
+                if sample_indices_case.size == 0:
+                    raise ValueError(
+                        "sample_indices no contiene índices válidos "
+                        f"para X_test con {n_samples} muestras."
+                    )
 
             print(f"X_test shape: {X_test_mi.shape}")
             print(f"N muestras: {n_samples}")
@@ -1948,7 +2122,7 @@ def run_mi_xai_and_save(
                         aux=label_source,
                     )
 
-                    if os.path.exists(output_path) and not overwrite:
+                    if save_attributions and os.path.exists(output_path) and not overwrite:
                         print(f"[SKIP] Ya existe: {output_path}")
                         continue
 
@@ -1980,20 +2154,37 @@ def run_mi_xai_and_save(
                             y_train=y_train_mi,
                             y_pred=xai_labels,
                             method=method_name,
-                            sample_indices=None,
+                            sample_indices=sample_indices_case,
                             label_source=label_source,
                             **xai_params,
                         )
 
                         importance_matrix = extract_importance_matrix(result)
 
-                        np.savez_compressed(
-                            output_path,
-                            importance=importance_matrix.astype(np.float32),
-                        )
-
-                        print(f"[OK] Guardado en: {output_path}")
+                        if save_attributions:
+                            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                            np.savez_compressed(
+                                output_path,
+                                importance=importance_matrix.astype(np.float32),
+                            )
+                            print(f"[OK] Guardado en: {output_path}")
+                        else:
+                            print("[OK] Atribuciones calculadas solo para timing.")
                         print(f"Importance shape: {importance_matrix.shape}")
+                        timing_log_path = write_xai_timing_log(
+                            results_dir=results_dir,
+                            result=result,
+                            paradigm="MI",
+                            window=window_name,
+                            subject=subject_id,
+                            fold=fold_to_extract,
+                            model_name=mi_model_name,
+                            label_source=label_source,
+                            hardware=hardware,
+                            method_params=xai_params,
+                        )
+                        if timing_log_path is not None:
+                            print(f"[OK] Timing log: {timing_log_path}")
 
                     except Exception as e:
                         print(
@@ -2042,6 +2233,9 @@ def run_tdah_xai_and_save(
     predict_batch_size=512,
     n_partitions=None,
     partition_id=None,
+    sample_indices=None,
+    hardware="NVIDIA T4 GPU",
+    save_attributions=True,
 ):
     """
     Ejecuta XAI para TDAH y guarda únicamente la matriz de relevancia
@@ -2125,6 +2319,18 @@ def run_tdah_xai_and_save(
             print("Partición usada: ninguna, se usa todo X_test.")
 
         n_samples = X_test_tdah.shape[0]
+        if sample_indices is None:
+            sample_indices_case = None
+        else:
+            sample_indices_case = np.asarray(sample_indices, dtype=int)
+            sample_indices_case = sample_indices_case[
+                sample_indices_case < n_samples
+            ]
+            if sample_indices_case.size == 0:
+                raise ValueError(
+                    "sample_indices no contiene índices válidos "
+                    f"para X_test con {n_samples} muestras."
+                )
 
         print(f"X_test usado shape: {X_test_tdah.shape}")
         print(f"N muestras usadas: {n_samples}")
@@ -2170,7 +2376,7 @@ def run_tdah_xai_and_save(
                     aux=label_source,
                 )
 
-                if os.path.exists(output_path) and not overwrite:
+                if save_attributions and os.path.exists(output_path) and not overwrite:
                     print(f"[SKIP] Ya existe: {output_path}")
                     continue
 
@@ -2207,20 +2413,39 @@ def run_tdah_xai_and_save(
                         y_train=y_train_tdah,
                         y_pred=xai_labels,
                         method=method_name,
-                        sample_indices=None,
+                        sample_indices=sample_indices_case,
                         label_source=label_source,
                         **xai_params,
                     )
 
                     importance_matrix = extract_importance_matrix(result)
 
-                    np.savez_compressed(
-                        output_path,
-                        importance=importance_matrix.astype(np.float32),
-                    )
-
-                    print(f"[OK] Guardado en: {output_path}")
+                    if save_attributions:
+                        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                        np.savez_compressed(
+                            output_path,
+                            importance=importance_matrix.astype(np.float32),
+                        )
+                        print(f"[OK] Guardado en: {output_path}")
+                    else:
+                        print("[OK] Atribuciones calculadas solo para timing.")
                     print(f"Importance shape: {importance_matrix.shape}")
+                    timing_log_path = write_xai_timing_log(
+                        results_dir=results_dir,
+                        result=result,
+                        paradigm="ADHD",
+                        window="TDAH",
+                        subject=None,
+                        fold=fold_to_extract,
+                        model_name=tdah_model_name,
+                        label_source=label_source,
+                        hardware=hardware,
+                        method_params=xai_params,
+                        partition_id=partition_id if n_partitions is not None else None,
+                        n_partitions=n_partitions,
+                    )
+                    if timing_log_path is not None:
+                        print(f"[OK] Timing log: {timing_log_path}")
 
                 except Exception as e:
                     print(

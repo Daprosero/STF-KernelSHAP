@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass, field
 from typing import Optional, List, Tuple, Callable
+import time
 
 import numpy as np
 import shap
@@ -10,6 +11,13 @@ try:
     from shap.explainers._kernel import KernelExplainer as OriginalKernelExplainer
 except Exception:
     OriginalKernelExplainer = shap.KernelExplainer
+
+
+def _sync_accelerator():
+    try:
+        tf.experimental.async_wait()
+    except Exception:
+        pass
 
 def get_classification_output(
     y,
@@ -858,8 +866,11 @@ def stf_kernelshap_all_xtest(
 
     relevance_maps = []
     class_indices = []
+    runtime_seconds = []
 
     for i, sample_idx in enumerate(sample_indices):
+        _sync_accelerator()
+        start_time = time.perf_counter()
 
         if random_state is not None:
             np.random.seed(
@@ -930,6 +941,10 @@ def stf_kernelshap_all_xtest(
         class_indices.append(
             class_idx
         )
+        _sync_accelerator()
+        runtime_seconds.append(
+            float(time.perf_counter() - start_time)
+        )
 
         print(
             f"[{i + 1}/{len(sample_indices)}] "
@@ -954,6 +969,7 @@ def stf_kernelshap_all_xtest(
         "score_type": "logits" if use_logits else "probabilities",
         "sample_indices": sample_indices,
         "class_indices": class_indices,
+        "runtime_seconds": np.asarray(runtime_seconds, dtype=np.float64),
         "relevance_maps": relevance_maps,
         "mean_relevance": np.mean(relevance_maps, axis=0),
     }
