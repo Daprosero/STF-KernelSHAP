@@ -1,58 +1,22 @@
 # STF-KernelSHAP
 
-Reproducible code, notebooks, trained artifacts, figures, and result files for the STF-KernelSHAP EEG explainability experiments on motor imagery (MI) and ADHD/TDAH classification tasks.
+Repositorio reproducible para los experimentos de explicabilidad EEG con STF-KernelSHAP en tareas de imaginacion motora (MI) y ADHD/TDAH.
 
-The repository is organized so that notebooks are thin runners and the implementation lives in `src/stf_kernelshap/`.
+El codigo reutilizable vive en `src/stf_kernelshap/` y los cuadernos en `Notebooks/` son runners del flujo experimental.
 
-## Repository Contents
+## Estructura del repositorio
 
-- `src/stf_kernelshap/`: reusable package with data loading, model builders, training/evaluation pipelines, XAI methods, STF-KernelSHAP, reporting, and visualization utilities.
-- `Notebooks/Train_models.ipynb`: Optuna training runner for MI and ADHD/TDAH models.
-- `Notebooks/TDAH_MI_Results.ipynb`: best-configuration retraining and classification CSV generation.
-- `Notebooks/run_xai_models_2.ipynb`: explanation generation.
-- `Notebooks/Computational_cost_scalability.ipynb`: T-GARNet computational-cost timing logs and figure.
-- `Notebooks/Classification_results.ipynb`: classification summary figures.
-- `Notebooks/Faithfulness_summary.ipynb`: faithfulness AUC summaries and rankings.
-- `Notebooks/Topoplots.ipynb`: topographic, selected relevance, and spectra figures.
-- `Models/`: trained model weights and Optuna journals included through Git LFS.
-- `Results/`: classification, attribution, faithfulness, and timing result files.
-- `Figures/`: generated paper figures.
-- `MI_TDAH_Dataset/`: optional local dataset folder ignored by Git.
-- `Temp/`: optional debug output folder ignored by Git.
+- `src/stf_kernelshap/`: paquete reutilizable con datos, modelos, entrenamiento, evaluacion, XAI, reporting y visualizacion.
+- `Notebooks/`: cuadernos reproducibles.
+- `Models/`: pesos entrenados y journals de Optuna incluidos mediante Git LFS cuando aplica.
+- `Results/`: CSVs, atribuciones, metricas de faithfulness y logs de tiempo.
+- `Figures/`: figuras finales.
+- `MI_TDAH_Dataset/`: carpeta local opcional para datos, ignorada por Git.
+- `Temp/`: salidas de debug, ignoradas por Git.
 
-## Large Files and Data
+El repositorio usa Git LFS para artefactos binarios como `.npz`, `.mat`, `.h5`, `.pkl` y `.pdf`.
 
-This repository uses Git LFS for binary scientific artifacts such as `.npz`, `.mat`, `.h5`, `.pkl`, and `.pdf` files.
-
-The full local project also contains datasets and debug outputs intentionally excluded from Git:
-
-- `Data/`
-- `MI_TDAH_Dataset/`
-- `Temp/`
-- `Data/MI/` (about 5.6 GB)
-
-The notebooks resolve the dataset automatically in this order:
-
-1. `MI_TDAH_Dataset/` in the repository root.
-2. Legacy local `Data/` in the repository root.
-3. Kaggle dataset `daprosero/mi-tdah-dataset` through `kagglehub`.
-
-Manual dataset download:
-
-```python
-import kagglehub
-
-path = kagglehub.dataset_download("daprosero/mi-tdah-dataset")
-print("Path to dataset files:", path)
-```
-
-Expected local layouts:
-
-- `MI_TDAH_Dataset/Data/MI/`
-- `MI_TDAH_Dataset/Data/TDAH/`
-- or legacy `Data/MI/` and `Data/TDAH/`
-
-## Setup
+## Instalacion
 
 ```bash
 python -m venv .venv
@@ -62,131 +26,257 @@ pip install -e .
 git lfs install
 ```
 
-All notebooks start with a bootstrap cell that finds the repository root, optionally clones the repository in Colab/Kaggle, installs `requirements.txt` in hosted runtimes, adds `src/` to `sys.path`, and calls `setup_notebook_environment`.
+## Datos
 
-Set `DEBUG = True` to write outputs under `Temp/Results`, `Temp/Figures`, and `Temp/Models`. Set `DEBUG = False` to write to the public repository folders.
+Los cuadernos resuelven los datos en este orden:
 
-## Recommended Reproduction Order
+1. `MI_TDAH_Dataset/` en la raiz del repositorio.
+2. `Data/` local heredada en la raiz del repositorio.
+3. Dataset Kaggle `daprosero/mi-tdah-dataset` mediante `kagglehub`.
 
-1. `Notebooks/Train_models.ipynb`: run Optuna studies or reproduce training artifacts.
-2. `Notebooks/TDAH_MI_Results.ipynb`: retrain/evaluate with best Optuna parameters and generate `Results/MI_results.csv` and `Results/TDAH_results.csv`.
-3. `Notebooks/run_xai_models_2.ipynb`: generate XAI attribution files.
-4. `Notebooks/Computational_cost_scalability.ipynb`: generate `Results/xai_timing_logs.csv` and `Figures/Computational_cost_scalability.pdf`.
-5. `Notebooks/Faithfulness_summary.ipynb`: compute MoRF/ROAD faithfulness summaries and rankings.
-6. `Notebooks/Classification_results.ipynb`: generate classification-result figures.
-7. `Notebooks/Topoplots.ipynb`: generate topographic and STF relevance figures.
+Layout esperado:
 
-## Notebook Guide
+- `MI_TDAH_Dataset/Data/MI/`
+- `MI_TDAH_Dataset/Data/TDAH/`
+- o `Data/MI/` y `Data/TDAH/`
 
-`Train_models.ipynb`
+Descarga manual opcional:
 
-- Uses `stf_kernelshap.experiments.training.run_mi_optuna_for_worker` and `run_tdah_optuna`.
-- Writes Optuna journals under `Models/.../Optuna` and best fold weights under `Models/.../Models`.
-- Main knobs: `model_name`, `window_name`, `worker_id`, `n_trials`, `epochs`, `batch_size`, and output model directory.
+```python
+import kagglehub
 
-`TDAH_MI_Results.ipynb`
+path = kagglehub.dataset_download("daprosero/mi-tdah-dataset")
+print("Path to dataset files:", path)
+```
 
-- Loads the best Optuna parameters from the journals.
-- Repeats/folds the final model evaluation with controlled seeds.
-- Writes `Results/MI_results.csv` and `Results/TDAH_results.csv`.
-- Main knobs: selected MI windows/subjects, selected models, `seed`, `seed_gap`, number of repeats, and output CSV paths.
+## Configuracion global de cuadernos
 
-`run_xai_models_2.ipynb`
+Todos los cuadernos empiezan con una celda bootstrap que:
 
-- Builds MI and ADHD/TDAH test cases, loads trained weights, and runs XAI methods.
-- Saves attribution files under `Results/attributions_y_test/...` or `Results/attributions_y_pred/...`.
-- Main knobs: `mi_subjects_to_extract`, `folds_to_extract`, `xai_methods`, `models_to_run`, `use_y_test`, and output paths.
+1. Encuentra la raiz del repositorio.
+2. Clona `https://github.com/Daprosero/STF-KernelSHAP.git` si se ejecuta desde un notebook suelto en Colab/Kaggle.
+3. Instala `requirements.txt` en Colab/Kaggle.
+4. Agrega `src/` a `sys.path`.
+5. Llama `setup_notebook_environment(debug=DEBUG)`.
 
-`Computational_cost_scalability.ipynb`
+`DEBUG` controla las rutas de salida:
 
-- Reuses the data/model-loading pattern from `run_xai_models_2.ipynb`, but is dedicated only to timing.
-- Runs T-GARNet as the heaviest evaluated classifier.
-- Uses one representative subject per MI window: `2.5-5` and `0-7`.
-- Uses a comparable ADHD/TDAH fold.
-- Runs all evaluated XAI methods over a percentage-based stratified sample from each case's `y_test`: `timing_sample_fraction = 0.05`, `timing_min_trials = 20`, `timing_max_trials = 100`, and `timing_random_state = 42`.
-- Writes `Results/xai_timing_logs.csv` and saves `Figures/Computational_cost_scalability.pdf`.
-- Main knobs: `timing_mi_subjects`, `timing_tdah_folds`, `timing_sample_fraction`, `timing_min_trials`, `timing_max_trials`, `timing_random_state`, `timing_xai_methods`, `timing_model`, `timing_hardware`, and `save_attributions=False`.
+- `DEBUG=False`: escribe en `Results/`, `Figures/` y `Models/`.
+- `DEBUG=True`: escribe en `Temp/Results/`, `Temp/Figures/` y `Temp/Models/`.
 
-`Faithfulness_summary.ipynb`
+## Orden recomendado de reproduccion
 
-- Reads faithfulness result CSVs and computes MoRF/ROAD AUC summaries.
-- Writes `Results/faithfulness_selected_relevance/faithfulness_auc_summary_for_paper.csv` and related per-sample/plot-ready files.
-- Main knobs: selected windows, methods, models, faithfulness metric, and early AUC percentage cutoff.
+1. `Notebooks/Train_models.ipynb`
+2. `Notebooks/TDAH_MI_Results.ipynb`
+3. `Notebooks/run_xai_models_2.ipynb`
+4. `Notebooks/Computational_cost_scalability.ipynb`
+5. `Notebooks/Faithfulness_summary.ipynb`
+6. `Notebooks/Classification_results.ipynb`
+7. `Notebooks/Topoplots.ipynb`
 
-`Classification_results.ipynb`
+## Guia por cuaderno
 
-- Reads `Results/MI_results.csv` and `Results/TDAH_results.csv`.
-- Generates paper-ready MI and ADHD/TDAH classification plots.
-- Main knobs: input CSV paths, save directory, metric order, model order, and selected MI window.
+### `Train_models.ipynb`
 
-`Topoplots.ipynb`
+Entrena modelos MI y ADHD/TDAH con Optuna.
 
-- Loads attribution `.npz` files and renders method-level scalp maps and STF cell maps.
-- Main knobs: MI subjects/folds, ADHD/TDAH fold, model names, XAI methods, frequency bands, time labels, relevance mode, and aggregation mode.
+Entradas principales:
 
-## Random Seeds
+- Datos MI/TDAH desde `DATA_DIR`.
+- Arquitecturas en `src/stf_kernelshap/modeling/models.py`.
+- Optuna journals y pesos previos si existen.
 
-The default seed is `42` unless explicitly changed.
+Salidas:
 
-- `src/stf_kernelshap/utils/common.py::set_seed(seed=42)` sets `PYTHONHASHSEED`, Python `random`, NumPy, and TensorFlow seeds, with deterministic TensorFlow ops when available.
-- Training folds use `seed + fold` or the evaluation notebook's `seed + repeat * 10000 + fold * seed_gap`.
-- Optuna uses `GPSampler(seed=42)`.
-- XAI background sampling uses `random_state=42` by default.
-- STF-KernelSHAP sets `np.random.seed(random_state + sample_position)` per explained sample when `random_state` is provided.
+- `Models/.../Optuna/*.journal`
+- `Models/.../Models/*.weights.h5`
 
-## Main Training Parameters
+Configuraciones principales:
 
-`run_mi_optuna_for_worker(model_name, window_name, worker_id, data_dir, output_models_dir, n_trials=20, epochs=100, batch_size=16)`
+- `model_name`: `eegnet`, `shallowconvnet` o `tgarnet`.
+- `window_name`: `2.5-5` o `0-7` para MI.
+- `worker_id`: particion de sujetos MI.
+- Defaults de funciones: `n_trials=20`, `epochs=100`, `batch_size=16`.
+- Semilla base: `42`.
 
-- `model_name`: one of `eegnet`, `shallowconvnet`, or `tgarnet`.
-- `window_name`: MI time window, `2.5-5` or `0-7`.
-- `worker_id`: 1-indexed subject partition used to distribute MI subjects across workers.
-- `data_dir`: dataset root containing `MI/<window>/subject_<id>.npz`.
-- `output_models_dir`: output root for journals and weights.
-- `n_trials`: Optuna trials per subject/model/window.
-- `epochs`: maximum epochs per fold.
-- `batch_size`: training batch size.
+### `TDAH_MI_Results.ipynb`
 
-`run_tdah_optuna(model_name, folds_path, path_adhd, path_control, output_models_dir, n_trials=20, epochs=100, batch_size=16)`
+Reconstruye los mejores modelos con parametros Optuna y genera metricas finales.
 
-- `model_name`: one of `eegnet`, `shallowconvnet`, or `tgarnet`.
-- `folds_path`: pickle file with subject folds.
-- `path_adhd`, `path_control`: ADHD and control `.mat` directories.
-- `output_models_dir`: output root for journals and weights.
-- `n_trials`, `epochs`, `batch_size`: same meaning as MI.
+Salidas:
 
-## Main XAI Parameters
+- `Results/MI_results.csv`
+- `Results/TDAH_results.csv`
 
-The central runner is `compute_xai_all_xtest(...)`, usually called through `run_mi_xai_and_save(...)` or `run_tdah_xai_and_save(...)`.
+Configuraciones principales:
 
-Shared runner parameters:
+- Ventanas/sujetos MI seleccionados.
+- Modelos evaluados: `eegnet`, `shallowconvnet`, `tgarnet`.
+- Repeticiones y folds.
+- Control de semilla mediante `seed`, `seed_gap` y fold.
 
-- `X_test`: test samples to explain.
-- `X_train`, `y_train`: training data used only for stratified backgrounds/reference baselines where required.
-- `y_pred`: target labels for explanation; in notebooks this is either model predictions or `y_test`.
-- `method`: `KernelSHAP`, `LIME`, `Occlusion`, `IntegratedGradients`, `GradCAM++`, or `STF-KernelSHAP`.
-- `sample_indices`: subset of trials to explain; use this for feasible timing experiments.
-- `label_source`: `y_pred` or `y_test`, recorded in attribution metadata/logs.
-- `output_layer_name`: model output used for logits/probability extraction, default `out_activation`.
+### `run_xai_models_2.ipynb`
 
-Adaptive XAI defaults from `get_adaptive_xai_params(...)`:
+Genera atribuciones XAI para MI y ADHD/TDAH.
 
-- `KernelSHAP`: stratified `background_size = min(100, max(8, 0.05 * n_samples))`, `nsamples=500`, `l1_reg="num_features(200)"`.
-- `LIME`: stratified `background_size = min(200, max(30, 0.10 * n_samples))`, `num_features=200`, `num_samples=1000`.
-- `Occlusion`: `window_seconds=1.0`, `stride_seconds=0.25`, `baseline_value=None`, `occ_batch_size=256`, background mean reference.
-- `IntegratedGradients`: `baseline=None`, stratified mean background reference, `steps=50`, `batch_size=1`.
-- `GradCAM++`: last compatible Conv2D layer by default; for ShallowConvNet the notebook uses `layer_name="Conv2D_1"`.
-- `STF-KernelSHAP`: `nfft=512`, `nsamples=500`, `l1_reg="num_features(200)"`, `baseline_tf=None`, `silent=True`, finite structured coalitions over time-frequency cells.
+Salidas:
 
-STF-KernelSHAP structured features:
+- `Results/attributions_y_test/...`
+- `Results/attributions_y_pred/...`
 
-- MI windows use frequency bands theta `(4, 8)`, alpha `(8, 13)`, beta `(13, 30)`, and gamma `(30, 40)` Hz.
-- ADHD/TDAH uses delta `(0.5, 4)`, theta `(4, 8)`, alpha `(8, 13)`, beta `(13, 30)`, and gamma `(30, 40)` Hz.
-- MI `0-7` is segmented into `(0, 2)`, `(2, 2.5)`, `(2.5, 5)`, and `(5, 7)` seconds.
-- Other windows use a single full-window segment unless `time_segments_sec` is supplied.
-- The structured feature count is `M_breve = C_breve * Q`, where `C_breve` is the number of channel groups/cells and `Q` is the number of time-frequency blocks.
+Configuraciones principales:
 
-## Minimal MI Example
+- `mi_subjects_to_extract`
+- `folds_to_extract`
+- `xai_methods`
+- `models_to_run`
+- `use_y_test`
+- `sample_indices`
+
+Nota importante:
+
+- Mantener las combinaciones modelo/metodo configuradas en el cuaderno.
+- EEGNet no se usa con el set completo de metodos perturbativos/gradiente porque su firma de entrada actual no es compatible con todos los metodos del runner, especialmente `Occlusion`, `IntegratedGradients` y `GradCAM++`.
+
+### `Computational_cost_scalability.ipynb`
+
+Estima o reutiliza tiempos de computo por muestra explicada.
+
+Salidas:
+
+- `Results/xai_timing_logs.csv`
+- `Figures/Computational_cost_scalability.pdf`
+
+Defaults:
+
+- `DEBUG = False`
+- `OVERWRITE_TIMINGS = False`
+- `timing_model = "tgarnet"`
+- `timing_hardware = "NVIDIA T4 GPU"`
+- `timing_sample_fraction = 0.05`
+- `timing_min_trials = 20`
+- `timing_max_trials = 100`
+- `timing_random_state = 42`
+- `save_attributions = False`
+
+Comportamiento:
+
+- Si existe `Results/xai_timing_logs.csv` y `OVERWRITE_TIMINGS=False`, el cuaderno reutiliza esos tiempos y solo regenera la figura.
+- Si `OVERWRITE_TIMINGS=True`, borra el log existente y vuelve a estimar los tiempos.
+- Si `DEBUG=True`, el mismo flujo escribe en `Temp/Results/` y `Temp/Figures/`.
+- El benchmark debe mantener `timing_model="tgarnet"` para el set completo de metodos XAI.
+
+Figura:
+
+- Ordena metodos de mayor a menor tiempo medio.
+- Usa etiquetas XAI rotadas 90 grados.
+- No usa titulos internos ni xlabel.
+- Usa ylabel `Time [s]`.
+- La leyenda de color queda vertical en la parte superior derecha.
+
+### `Faithfulness_summary.ipynb`
+
+Resume metricas de faithfulness MoRF/ROAD.
+
+Salidas:
+
+- `Results/faithfulness_selected_relevance/faithfulness_auc_summary_for_paper.csv`
+- Archivos auxiliares por muestra y tablas listas para figura.
+
+Configuraciones principales:
+
+- Ventanas MI.
+- Metodos XAI.
+- Modelo usado para las atribuciones.
+- Porcentajes de perturbacion.
+- Metrica de ranking MoRF/ROAD.
+
+### `Classification_results.ipynb`
+
+Genera figuras resumen de desempeno de clasificacion.
+
+Entradas:
+
+- `Results/MI_results.csv`
+- `Results/TDAH_results.csv`
+
+Salidas:
+
+- Figuras en `Figures/`.
+
+Configuraciones principales:
+
+- Orden de modelos.
+- Orden de metricas.
+- Ventana MI seleccionada.
+- Directorio de guardado.
+
+### `Topoplots.ipynb`
+
+Genera mapas topograficos, mapas STF y figuras espectrales.
+
+Entradas:
+
+- Atribuciones `.npz` desde `Results/attributions_*`.
+- Datos MI/TDAH.
+- Pesos/modelos entrenados cuando se requieren metricas de perturbacion.
+
+Salidas:
+
+- Figuras topograficas y de relevancia en `Figures/`.
+- Resultados seleccionados de faithfulness cuando aplica.
+
+Configuraciones principales:
+
+- Sujetos/folds MI.
+- Fold ADHD/TDAH.
+- `model_name`.
+- `XAI_METHODS`.
+- Bandas de frecuencia.
+- Segmentos temporales.
+- Modo de agregacion de relevancia.
+
+## Parametros XAI por defecto
+
+El runner central es `compute_xai_all_xtest(...)`, llamado normalmente por `run_mi_xai_and_save(...)` o `run_tdah_xai_and_save(...)`.
+
+Parametros compartidos:
+
+- `X_test`: muestras a explicar.
+- `X_train`, `y_train`: fondo/referencia estratificada cuando el metodo lo requiere.
+- `y_pred`: clase objetivo; en los cuadernos puede ser `y_test` o prediccion del modelo.
+- `method`: `KernelSHAP`, `LIME`, `Occlusion`, `IntegratedGradients`, `GradCAM++` o `STF-KernelSHAP`.
+- `sample_indices`: subconjunto de ensayos.
+- `label_source`: `y_pred` o `y_test`.
+- `output_layer_name`: default `out_activation`.
+
+Defaults adaptativos:
+
+- `KernelSHAP`: `background_size=min(100, max(8, 0.05*n_samples))`, `nsamples=500`, `l1_reg="num_features(200)"`.
+- `LIME`: `background_size=min(200, max(30, 0.10*n_samples))`, `num_features=200`, `num_samples=1000`.
+- `Occlusion`: `window_seconds=1.0`, `stride_seconds=0.25`, `baseline_value=None`, `occ_batch_size=256`.
+- `IntegratedGradients`: `baseline=None`, `steps=50`, `batch_size=1`.
+- `GradCAM++`: ultima capa `Conv2D` compatible; para ShallowConvNet se usa `Conv2D_1`.
+- `STF-KernelSHAP`: `nfft=512`, `nsamples=500`, `l1_reg="num_features(200)"`, `baseline_tf=None`, `silent=True`.
+
+Estructura STF-KernelSHAP:
+
+- MI: bandas theta `(4, 8)`, alpha `(8, 13)`, beta `(13, 30)`, gamma `(30, 40)` Hz.
+- ADHD/TDAH: delta `(0.5, 4)`, theta `(4, 8)`, alpha `(8, 13)`, beta `(13, 30)`, gamma `(30, 40)` Hz.
+- MI `0-7`: segmentos `(0, 2)`, `(2, 2.5)`, `(2.5, 5)`, `(5, 7)` s.
+- Otras ventanas: segmento temporal completo si no se define `time_segments_sec`.
+- Numero de features estructurados: `M_breve = C_breve * Q`.
+
+## Semillas
+
+Default general: `42`.
+
+- `set_seed(seed=42)` fija `PYTHONHASHSEED`, `random`, NumPy y TensorFlow.
+- Optuna usa `GPSampler(seed=42)`.
+- XAI usa `random_state=42` por defecto.
+- En STF-KernelSHAP se usa `random_state + sample_position` por muestra explicada.
+
+## Ejemplo minimo MI
 
 ```python
 from stf_kernelshap.visualization.topoplots import build_mi_data_from_npz
@@ -211,7 +301,7 @@ run_mi_xai_and_save(
 )
 ```
 
-## Minimal ADHD/TDAH Example
+## Ejemplo minimo ADHD/TDAH
 
 ```python
 from stf_kernelshap.visualization.topoplots import build_tdah_data_from_segmented
@@ -239,19 +329,15 @@ run_tdah_xai_and_save(
 )
 ```
 
-## Computational Cost Figure
+## Artefactos principales
 
-`Notebooks/Computational_cost_scalability.ipynb` generates:
+- `Results/xai_timing_logs.csv`: tiempos por muestra explicada.
+- `Figures/Computational_cost_scalability.pdf`: figura de costo computacional.
+- `Results/MI_results.csv`: metricas MI.
+- `Results/TDAH_results.csv`: metricas ADHD/TDAH.
+- `Results/attributions_y_test/`: atribuciones respecto a etiqueta real.
+- `Results/attributions_y_pred/`: atribuciones respecto a prediccion del modelo.
 
-- `Results/xai_timing_logs.csv`: one row per explained sampled trial, method, model, paradigm, fold/subject, and runtime.
-- `Figures/Computational_cost_scalability.pdf`: 1 x 2 figure with MI and ADHD/TDAH panels for T-GARNet, reporting mean explanation runtime per trial and standard-deviation error bars across the timing logs. The MI panel keeps the `2.5-5` and `0-7` windows separated.
+## Citacion
 
-The timing notebook uses `save_attributions=False` so the computational-cost sample does not overwrite full attribution files used by the other analyses.
-
-## Code Availability Statement
-
-This public repository provides the implementation, reproducibility notebooks, configuration parameters, fixed random seeds, trained model artifacts/Optuna journals, scripts for model training and explanation generation, XAI parameter settings, minimal MI and ADHD/TDAH execution examples, timing-log generation, and figure-generation utilities required to reproduce the reported analyses.
-
-## Citation
-
-If this repository supports a paper, cite the paper and the external data archive DOI once available.
+Si este repositorio apoya un articulo, cite el articulo y el DOI/enlace publico del dataset externo cuando este disponible.

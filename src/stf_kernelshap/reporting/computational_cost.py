@@ -22,9 +22,9 @@ METHOD_LABELS = {
     "KernelSHAP": "KernelSHAP",
     "LIME": "LIME",
     "Occlusion": "Occlusion",
-    "IntegratedGradients": "Integrated\nGradients",
+    "IntegratedGradients": "Integrated Gradients",
     "GradCAM++": "Grad-CAM++",
-    "STF-KernelSHAP": "STF-\nKernelSHAP",
+    "STF-KernelSHAP": "STF-KernelSHAP",
 }
 MODEL_ORDER = ["eegnet", "shallowconvnet", "tgarnet"]
 MODEL_COLORS = {
@@ -108,6 +108,17 @@ def _ordered_present(values, preferred_order):
     return ordered
 
 
+def _methods_by_runtime_desc(df_summary, fallback_order):
+    ranked = (
+        df_summary.groupby("method", as_index=False)["runtime_mean_s"]
+        .mean()
+        .sort_values("runtime_mean_s", ascending=False)
+    )
+    ordered = ranked["method"].tolist()
+    ordered.extend([method for method in fallback_order if method not in ordered])
+    return ordered
+
+
 def plot_computational_cost_figure(
     df_summary,
     save_path=None,
@@ -115,7 +126,10 @@ def plot_computational_cost_figure(
     model_order=None,
 ):
     """Create the 1 x 2 computational-cost figure for MI and ADHD."""
-    method_order = method_order or DEFAULT_METHOD_ORDER
+    method_order = method_order or _methods_by_runtime_desc(
+        df_summary,
+        DEFAULT_METHOD_ORDER,
+    )
     model_order = model_order or MODEL_ORDER
 
     method_order = _ordered_present(df_summary["method"], method_order)
@@ -152,20 +166,21 @@ def plot_computational_cost_figure(
                 zorder=3,
             )
 
-        ax.set_title(title, fontsize=figure_fontsize_pt)
         ax.set_xticks(x)
         ax.set_xticklabels(
             [METHOD_LABELS.get(method, method) for method in method_order],
-            rotation=0,
+            rotation=90,
+            ha="center",
+            va="top",
             fontsize=tick_fontsize_pt,
         )
-        ax.set_xlabel("XAI method", fontsize=figure_fontsize_pt)
+        ax.set_xlabel("")
         ax.grid(axis="y", alpha=0.35, zorder=1)
         ax.set_axisbelow(True)
         ax.tick_params(axis="y", labelsize=figure_fontsize_pt)
 
     axes[0].set_ylabel(
-        "Mean explanation runtime per trial [s]",
+        "Time [s]",
         fontsize=figure_fontsize_pt,
     )
 
@@ -173,13 +188,13 @@ def plot_computational_cost_figure(
     fig.legend(
         handles,
         labels,
-        loc="lower center",
-        ncol=min(len(labels), 3),
+        loc="upper right",
+        ncol=1,
         fontsize=figure_fontsize_pt,
         frameon=True,
-        bbox_to_anchor=(0.5, 0.02),
+        bbox_to_anchor=(0.98, 0.96),
     )
-    fig.subplots_adjust(bottom=0.23, top=0.92, wspace=0.12)
+    fig.subplots_adjust(bottom=0.38, top=0.96, right=0.82, wspace=0.12)
 
     if save_path is not None:
         save_dir = os.path.dirname(save_path)
@@ -212,7 +227,10 @@ def plot_tgarnet_computational_cost_figure(
     model_name="tgarnet",
 ):
     """Create a 1 x 2 figure for T-GARNet timing in MI windows and ADHD."""
-    method_order = method_order or DEFAULT_METHOD_ORDER
+    method_order = method_order or _methods_by_runtime_desc(
+        df_summary[df_summary["model"].astype(str).str.lower() == model_name],
+        DEFAULT_METHOD_ORDER,
+    )
     mi_window_order = mi_window_order or ["2.5-5", "0-7"]
     method_order = _ordered_present(df_summary["method"], method_order)
 
@@ -268,21 +286,22 @@ def plot_tgarnet_computational_cost_figure(
         zorder=3,
     )
 
-    for ax, title in zip(axes, ["MI", "ADHD/TDAH"]):
-        ax.set_title(f"{title} - {pretty_model_name(model_name)}", fontsize=figure_fontsize_pt)
+    for ax in axes:
         ax.set_xticks(x)
         ax.set_xticklabels(
             [METHOD_LABELS.get(method, method) for method in method_order],
-            rotation=0,
+            rotation=90,
+            ha="center",
+            va="top",
             fontsize=tick_fontsize_pt,
         )
-        ax.set_xlabel("XAI method", fontsize=figure_fontsize_pt)
+        ax.set_xlabel("")
         ax.grid(axis="y", alpha=0.35, zorder=1)
         ax.set_axisbelow(True)
         ax.tick_params(axis="y", labelsize=figure_fontsize_pt)
 
     axes[0].set_ylabel(
-        "Mean explanation runtime per trial [s]",
+        "Time [s]",
         fontsize=figure_fontsize_pt,
     )
 
@@ -297,13 +316,13 @@ def plot_tgarnet_computational_cost_figure(
     fig.legend(
         handles,
         labels,
-        loc="lower center",
-        ncol=min(len(labels), 3),
+        loc="upper right",
+        ncol=1,
         fontsize=figure_fontsize_pt,
         frameon=True,
-        bbox_to_anchor=(0.5, 0.02),
+        bbox_to_anchor=(0.98, 0.96),
     )
-    fig.subplots_adjust(bottom=0.23, top=0.92, wspace=0.12)
+    fig.subplots_adjust(bottom=0.38, top=0.96, right=0.82, wspace=0.12)
 
     if save_path is not None:
         save_dir = os.path.dirname(save_path)
