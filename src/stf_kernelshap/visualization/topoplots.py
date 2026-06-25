@@ -79,9 +79,10 @@ def load_mi_case(
     fold,
     aux='y_test',
     results_dir=RESULTS_DIR,
+    base_path_mi='Data/MI',
     model_name=MI_MODEL_NAME,
 ):
-    mi_data = load_mi_subject_fold(base_path_mi='Data/MI', window_name=window_name, subject_id=subject_id, fold=fold)
+    mi_data = load_mi_subject_fold(base_path_mi=base_path_mi, window_name=window_name, subject_id=subject_id, fold=fold)
     importance_by_method = {}
     for method_name in XAI_METHODS:
         path = make_xai_filename(
@@ -96,10 +97,15 @@ def load_mi_case(
         importance_by_method[method_name] = load_npz_importance(path)
     return {'window_name': window_name, 'subject_id': subject_id, 'fold': fold, 'data': mi_data, 'y_test': mi_data['y_test'], 'importance': importance_by_method}
 
-def load_tdah_fold_data(fold_to_extract=4):
-    with open('Data/TDAH/folds.pkl', 'rb') as f:
+def load_tdah_fold_data(
+    fold_to_extract=4,
+    folds_path='Data/TDAH/folds.pkl',
+    path_adhd='Data/TDAH/ieee/ADHD_group',
+    path_control='Data/TDAH/ieee/Control_group',
+):
+    with open(folds_path, 'rb') as f:
         folds = pickle.load(f)
-    X, y, sbjs, _ = get_segmented_data(path_adhd='Data/TDAH/ieee/ADHD_group', path_control='Data/TDAH/ieee/Control_group')
+    X, y, sbjs, _ = get_segmented_data(path_adhd=path_adhd, path_control=path_control)
     train_subjects, _, test_subjects = folds[fold_to_extract]
     sbjs_array = np.asarray(sbjs)
     train_idx = np.asarray([i for i, sbj in enumerate(sbjs) if sbj in train_subjects], dtype=int)
@@ -940,7 +946,7 @@ def run_mi_selected_faithfulness(mi_data, mi_subjects_to_extract, results_dir=RE
         gc.collect()
     return pd.concat(rows_all, ignore_index=True)
 
-def run_tdah_selected_faithfulness(tdah_data, data_fold=TDAH_DATA_FOLD, model_attr_fold=TDAH_MODEL_ATTR_FOLD, results_dir=RESULTS_DIR, model_name=TDAH_MODEL_NAME, xai_methods=XAI_METHODS, aux=AUX, percentages=PERCENTAGES, baseline_value=0.0, use_abs=True, predict_batch_size=512):
+def run_tdah_selected_faithfulness(tdah_data, data_fold=TDAH_DATA_FOLD, model_attr_fold=TDAH_MODEL_ATTR_FOLD, results_dir=RESULTS_DIR, models_tdah_root='Models/TDAH', model_name=TDAH_MODEL_NAME, xai_methods=XAI_METHODS, aux=AUX, percentages=PERCENTAGES, baseline_value=0.0, use_abs=True, predict_batch_size=512):
     """
     Runs TDAH using:
         data fold 4
@@ -966,9 +972,9 @@ def run_tdah_selected_faithfulness(tdah_data, data_fold=TDAH_DATA_FOLD, model_at
             if model is not None:
                 del model
                 gc.collect()
-            journal_file = f'Models/TDAH/Optuna/study_{model_name}_TDAH.journal'
+            journal_file = os.path.join(models_tdah_root, 'Optuna', f'study_{model_name}_TDAH.journal')
             study_name = f'study_{model_name}_TDAH'
-            weights_file = f'Models/TDAH/Models/{model_name}_fold_{model_attr_fold}.weights.h5'
+            weights_file = os.path.join(models_tdah_root, 'Models', f'{model_name}_fold_{model_attr_fold}.weights.h5')
             model, _, _ = load_tdah_model_and_predict(model_name=model_name, journal_file=journal_file, study_name=study_name, weights_file=weights_file, X_test=X_test, base_model_args=base_model_args_tdah)
             current_model_key = model_key
         importance = load_tdah_importance_allow_parts(results_dir=results_dir, fold=model_attr_fold, model_name=model_name, method_name=method_name, aux=aux, n_partitions=7)
@@ -991,7 +997,7 @@ def run_tdah_selected_faithfulness(tdah_data, data_fold=TDAH_DATA_FOLD, model_at
         gc.collect()
     return pd.concat(rows_all, ignore_index=True)
 
-def run_selected_faithfulness_metrics(results_dir=RESULTS_DIR, output_dir=OUTPUT_DIR, base_path_mi='Data/MI', mi_subjects_to_extract=MI_SUBJECTS_TO_EXTRACT, tdah_data_fold=TDAH_DATA_FOLD, tdah_model_attr_fold=TDAH_MODEL_ATTR_FOLD, percentages=PERCENTAGES, baseline_value=0.0, use_abs=True, predict_batch_size=512):
+def run_selected_faithfulness_metrics(results_dir=RESULTS_DIR, output_dir=OUTPUT_DIR, base_path_mi='Data/MI', folds_path='Data/TDAH/folds.pkl', path_adhd='Data/TDAH/ieee/ADHD_group', path_control='Data/TDAH/ieee/Control_group', models_tdah_root='Models/TDAH', mi_subjects_to_extract=MI_SUBJECTS_TO_EXTRACT, tdah_data_fold=TDAH_DATA_FOLD, tdah_model_attr_fold=TDAH_MODEL_ATTR_FOLD, percentages=PERCENTAGES, baseline_value=0.0, use_abs=True, predict_batch_size=512):
     """
     Computes MoRF + ROAD score curves for:
         selected MI
@@ -1009,7 +1015,7 @@ def run_selected_faithfulness_metrics(results_dir=RESULTS_DIR, output_dir=OUTPUT
     print('=' * 90)
     print('Building TDAH data')
     print('=' * 90)
-    tdah_data = build_tdah_data_from_segmented(fold_to_extract=tdah_data_fold)
+    tdah_data = build_tdah_data_from_segmented(fold_to_extract=tdah_data_fold, folds_path=folds_path, path_adhd=path_adhd, path_control=path_control)
     print('=' * 90)
     print('Computing MI score curves')
     print('=' * 90)
@@ -1017,7 +1023,7 @@ def run_selected_faithfulness_metrics(results_dir=RESULTS_DIR, output_dir=OUTPUT
     print('=' * 90)
     print('Computing TDAH score curves')
     print('=' * 90)
-    df_tdah = run_tdah_selected_faithfulness(tdah_data=tdah_data, data_fold=tdah_data_fold, model_attr_fold=tdah_model_attr_fold, results_dir=results_dir, model_name=TDAH_MODEL_NAME, xai_methods=XAI_METHODS, aux=AUX, percentages=percentages, baseline_value=baseline_value, use_abs=use_abs, predict_batch_size=predict_batch_size)
+    df_tdah = run_tdah_selected_faithfulness(tdah_data=tdah_data, data_fold=tdah_data_fold, model_attr_fold=tdah_model_attr_fold, results_dir=results_dir, models_tdah_root=models_tdah_root, model_name=TDAH_MODEL_NAME, xai_methods=XAI_METHODS, aux=AUX, percentages=percentages, baseline_value=baseline_value, use_abs=use_abs, predict_batch_size=predict_batch_size)
     df_per_sample = pd.concat([df_mi, df_tdah], ignore_index=True)
     per_sample_csv_path = os.path.join(output_dir, 'faithfulness_selected_relevance_score_per_sample.csv')
     df_per_sample.to_csv(per_sample_csv_path, index=False)
@@ -1155,7 +1161,7 @@ def plot_selected_faithfulness_figures(df_plot_ready, output_dir=None):
     output_paths['TDAH'] = plot_tdah_tgarnet_1x2(df_plot_ready=df_plot_ready, output_dir=output_dir, output_filename='DR_TDAH.pdf')
     return output_paths
 
-def run_selected_faithfulness_all(recompute_metrics=True, per_sample_csv_path=None, plot_ready_csv_path=None):
+def run_selected_faithfulness_all(recompute_metrics=True, per_sample_csv_path=None, plot_ready_csv_path=None, results_dir=RESULTS_DIR, output_dir=OUTPUT_DIR, figures_dir=FIGURES_DIR, base_path_mi='Data/MI', folds_path='Data/TDAH/folds.pkl', path_adhd='Data/TDAH/ieee/ADHD_group', path_control='Data/TDAH/ieee/Control_group', models_tdah_root='Models/TDAH'):
     """
     If recompute_metrics=True:
         computes predicted-class score curves and saves CSV files.
@@ -1164,11 +1170,11 @@ def run_selected_faithfulness_all(recompute_metrics=True, per_sample_csv_path=No
         loads existing score CSV files and only regenerates figures.
     """
     if per_sample_csv_path is None:
-        per_sample_csv_path = os.path.join(OUTPUT_DIR, 'faithfulness_selected_relevance_score_per_sample.csv')
+        per_sample_csv_path = os.path.join(output_dir, 'faithfulness_selected_relevance_score_per_sample.csv')
     if plot_ready_csv_path is None:
-        plot_ready_csv_path = os.path.join(OUTPUT_DIR, 'faithfulness_selected_relevance_score_plot_ready.csv')
+        plot_ready_csv_path = os.path.join(output_dir, 'faithfulness_selected_relevance_score_plot_ready.csv')
     if recompute_metrics:
-        df_per_sample, df_plot_ready = run_selected_faithfulness_metrics(results_dir=RESULTS_DIR, output_dir=OUTPUT_DIR, base_path_mi='Data/MI', mi_subjects_to_extract=MI_SUBJECTS_TO_EXTRACT, tdah_data_fold=TDAH_DATA_FOLD, tdah_model_attr_fold=TDAH_MODEL_ATTR_FOLD, percentages=PERCENTAGES, baseline_value=0.0, use_abs=False, predict_batch_size=512)
+        df_per_sample, df_plot_ready = run_selected_faithfulness_metrics(results_dir=results_dir, output_dir=output_dir, base_path_mi=base_path_mi, folds_path=folds_path, path_adhd=path_adhd, path_control=path_control, models_tdah_root=models_tdah_root, mi_subjects_to_extract=MI_SUBJECTS_TO_EXTRACT, tdah_data_fold=TDAH_DATA_FOLD, tdah_model_attr_fold=TDAH_MODEL_ATTR_FOLD, percentages=PERCENTAGES, baseline_value=0.0, use_abs=False, predict_batch_size=512)
     else:
         if not os.path.exists(per_sample_csv_path):
             raise FileNotFoundError(f'The per-sample CSV does not exist:\n{per_sample_csv_path}')
@@ -1180,7 +1186,7 @@ def run_selected_faithfulness_all(recompute_metrics=True, per_sample_csv_path=No
         print('Per-sample shape:', df_per_sample.shape)
         print(f'[OK] Plot-ready CSV loaded: {plot_ready_csv_path}')
         print('Plot-ready shape:', df_plot_ready.shape)
-    output_paths = plot_selected_faithfulness_figures(df_plot_ready=df_plot_ready, output_dir=FIGURES_DIR)
+    output_paths = plot_selected_faithfulness_figures(df_plot_ready=df_plot_ready, output_dir=figures_dir)
     return (df_per_sample, df_plot_ready, output_paths)
 
 def compute_normalized_auc(x, y):

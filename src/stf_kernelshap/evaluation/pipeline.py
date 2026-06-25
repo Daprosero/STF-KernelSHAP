@@ -319,20 +319,20 @@ def train_tdah_with_best_optuna_config(
     return results
 
 
-def get_subject_npz_path(window_name, subject_id):
+def get_subject_npz_path(window_name, subject_id, data_mi_root=DATA_MI_ROOT):
     return os.path.join(
-        DATA_MI_ROOT,
+        data_mi_root,
         window_name,
         f"subject_{subject_id}.npz"
     )
 
 
-def get_model_paths(window_name, model_name, subject_id):
+def get_model_paths(window_name, model_name, subject_id, models_mi_root=MODELS_MI_ROOT):
     model_name = model_name.lower()
     model_folder = get_model_folder_name(model_name)
 
     model_base_dir = os.path.join(
-        MODELS_MI_ROOT,
+        models_mi_root,
         window_name,
         model_folder
     )
@@ -399,6 +399,8 @@ def evaluate_subject_to_simple_rows(
     window_name,
     model_name,
     subject_id,
+    data_mi_root=DATA_MI_ROOT,
+    models_mi_root=MODELS_MI_ROOT,
     seed=42,
 ):
     model_name = model_name.lower()
@@ -406,12 +408,14 @@ def evaluate_subject_to_simple_rows(
     npz_path = get_subject_npz_path(
         window_name=window_name,
         subject_id=subject_id,
+        data_mi_root=data_mi_root,
     )
 
     models_dir, journal_file, study_name = get_model_paths(
         window_name=window_name,
         model_name=model_name,
         subject_id=subject_id,
+        models_mi_root=models_mi_root,
     )
 
     if not os.path.exists(npz_path):
@@ -551,6 +555,8 @@ def evaluate_window_to_single_csv(
     window_name,
     models=("eegnet", "shallowconvnet", "tgarnet"),
     subjects=None,
+    data_mi_root=DATA_MI_ROOT,
+    models_mi_root=MODELS_MI_ROOT,
     seed=42,
 ):
     print("\n" + "=" * 80)
@@ -565,7 +571,7 @@ def evaluate_window_to_single_csv(
         model_folder = get_model_folder_name(model_name)
 
         optuna_dir = os.path.join(
-            MODELS_MI_ROOT,
+            models_mi_root,
             window_name,
             model_folder,
             "Optuna"
@@ -590,6 +596,8 @@ def evaluate_window_to_single_csv(
                     window_name=window_name,
                     model_name=model_name,
                     subject_id=subject_id,
+                    data_mi_root=data_mi_root,
+                    models_mi_root=models_mi_root,
                     seed=seed,
                 )
 
@@ -608,6 +616,9 @@ def evaluate_all_windows_to_single_csv(
     windows=("2.5-5", "0-7"),
     models=("eegnet", "shallowconvnet", "tgarnet"),
     subjects=None,
+    data_mi_root=DATA_MI_ROOT,
+    models_mi_root=MODELS_MI_ROOT,
+    output_csv=None,
     seed=42,
 ):
     all_dfs = []
@@ -618,6 +629,8 @@ def evaluate_all_windows_to_single_csv(
             window_name=window_name,
             models=models,
             subjects=subjects,
+            data_mi_root=data_mi_root,
+            models_mi_root=models_mi_root,
             seed=seed,
         )
 
@@ -626,4 +639,12 @@ def evaluate_all_windows_to_single_csv(
     if len(all_dfs) == 0:
         return pd.DataFrame()
 
-    return pd.concat(all_dfs, ignore_index=True)
+    df_results = pd.concat(all_dfs, ignore_index=True)
+
+    if output_csv is not None:
+        output_dir = os.path.dirname(output_csv)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        df_results.to_csv(output_csv, index=False)
+
+    return df_results

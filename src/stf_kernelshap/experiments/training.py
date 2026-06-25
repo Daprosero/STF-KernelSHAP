@@ -93,6 +93,8 @@ def run_mi_optuna_for_worker(
     model_name,
     window_name,
     worker_id,
+    data_dir="Data",
+    output_models_dir=".",
     n_trials=20,
     epochs=100,
     batch_size=16,
@@ -114,11 +116,19 @@ def run_mi_optuna_for_worker(
                 "Samples": samples,
             },
             base_compile_args={},
-            npz_path=f"Data/MI/{window_name}/subject_{subject_id}.npz",
+            npz_path=os.path.join(
+                data_dir,
+                "MI",
+                window_name,
+                f"subject_{subject_id}.npz",
+            ),
             n_trials=n_trials,
             epochs=epochs,
             batch_size=batch_size,
-            best_model_dir=f"{model_name}_MI_{window_name}_best_models_{subject_id}",
+            best_model_dir=os.path.join(
+                output_models_dir,
+                f"{model_name}_MI_{window_name}_best_models_{subject_id}",
+            ),
         )
 
     return studies
@@ -126,16 +136,27 @@ def run_mi_optuna_for_worker(
 
 def run_tdah_optuna(
     model_name,
+    folds_path="Data/TDAH/folds.pkl",
+    path_adhd="Data/TDAH/ieee/ADHD_group",
+    path_control="Data/TDAH/ieee/Control_group",
+    output_models_dir=".",
     n_trials=20,
     epochs=100,
     batch_size=16,
 ):
-    X, y, sbjs, folds = load_tdah_training_data()
+    X, y, sbjs, folds = load_tdah_training_data(
+        folds_path=folds_path,
+        path_adhd=path_adhd,
+        path_control=path_control,
+    )
     return run_optuna_experiment(
         model_name=model_name,
         data_mode="subject_folds",
         study_name=f"study_{model_name}_TDAH",
-        journal_file=f"study_{model_name}_TDAH.journal",
+        journal_file=os.path.join(
+            output_models_dir,
+            f"study_{model_name}_TDAH.journal",
+        ),
         base_model_args={
             "nb_classes": 2,
             "Chans": 19,
@@ -150,5 +171,5 @@ def run_tdah_optuna(
         n_trials=n_trials,
         epochs=epochs,
         batch_size=batch_size,
-        best_model_dir=f"{model_name}_best_models",
+        best_model_dir=os.path.join(output_models_dir, f"{model_name}_best_models"),
     )

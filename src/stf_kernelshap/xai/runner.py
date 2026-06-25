@@ -43,6 +43,7 @@ def load_mi_model_and_predict(
     fold,
     model_name,
     X_test,
+    models_mi_root="Models/MI",
 ):
     model_name = model_name.lower()
 
@@ -58,6 +59,7 @@ def load_mi_model_and_predict(
         window_name=window_name,
         model_name=model_name,
         subject_id=subject_id,
+        models_mi_root=models_mi_root,
     )
 
     best_trial = load_best_trial_from_journal(
@@ -1847,6 +1849,7 @@ def run_mi_xai_and_save(
     mi_data,
     mi_subjects_to_extract,
     results_dir="Results",
+    models_mi_root="Models/MI",
     models_to_run=None,
     xai_methods_to_run=None,
     selected_windows=None,
@@ -1926,6 +1929,7 @@ def run_mi_xai_and_save(
                     fold=fold_to_extract,
                     model_name=mi_model_name,
                     X_test=X_test_mi,
+                    models_mi_root=models_mi_root,
                 )
 
                 xai_labels = y_test_mi if use_y_test else mi_y_pred
@@ -2029,6 +2033,7 @@ def run_tdah_xai_and_save(
     tdah_data_by_fold,
     folds_to_extract,
     results_dir="Results",
+    models_tdah_root="Models/TDAH",
     models_to_run=None,
     xai_methods_to_run=None,
     selected_folds=None,
@@ -2131,12 +2136,12 @@ def run_tdah_xai_and_save(
             print("=" * 80)
 
             journal_file = (
-                f"Models/TDAH/Optuna/"
+                f"{models_tdah_root}/Optuna/"
                 f"study_{tdah_model_name}_TDAH.journal"
             )
             study_name = f"study_{tdah_model_name}_TDAH"
             weights_file = (
-                f"Models/TDAH/Models/"
+                f"{models_tdah_root}/Models/"
                 f"{tdah_model_name}_fold_{fold_to_extract}.weights.h5"
             )
 

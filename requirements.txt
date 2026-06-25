@@ -1,5 +1,6 @@
 ipython
 jupyter
+kagglehub
 keras-nlp
 lime
 matplotlib

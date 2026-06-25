@@ -7,5 +7,7 @@ __pycache__/
 
 # Large research artifacts kept outside this GitHub repository.
 # Use an external data archive such as Zenodo/OSF/Drive and cite it from README.
-Data/
-Models/MI/
+/Data/
+/MI_TDAH_Dataset/
+/Temp/
+/Models/MI/
