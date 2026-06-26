@@ -282,7 +282,7 @@ def plot_tgarnet_computational_cost_figure(
         linewidth=0.8,
         edgecolor="black",
         color=WINDOW_COLORS["ADHD"],
-        label="ADHD/TDAH",
+        label="ADHD",
         zorder=3,
     )
 
